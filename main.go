@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"time"
 	"github.com/DevankNassa/gopoke/internal/pokecache"
+	"math/rand"
 )
 type cliCommand struct {
 	name string
@@ -29,16 +30,31 @@ type requestBody struct {
 	Previous string `json:"previous"`
 	Results []resultStruct `json:"results"`
 }
-type requestPokemon struct {
+type requestPokemonInArea struct {
 	PokemonList []pokemonStruct `json:"pokemon_encounters"`
+}
+type statsStruct struct {
+	Base_Stat int `json:"base_stat"`
+}
+type requestPokemon struct {
+	PokemonStats []statsStruct `json:"stats"`
+}
+type Pokemon struct {
+	name string
+	basehp int
+
 }
 
 var commandMap map[string]cliCommand
 var currentPage string
 var previousPage string
 var exploreLocation string
+var catchPokemon string
+var caughtPokemon = make(map[string]Pokemon)
+var throw int
 
 func init() {
+	throw = 0
 	currentPage = "https://pokeapi.co/api/v2/location-area"
 	previousPage = ""
 	commandMap = map[string]cliCommand{
@@ -68,6 +84,11 @@ func init() {
 			description: "Explore pokemon in the area selected",
 			callback: commandExplore,
 		},
+		"catch":{
+			name:"catch",
+			description:"Catch the pokemon",
+			callback: commandCatch,
+		},
 	}
 }
 
@@ -90,6 +111,9 @@ func main() {
 		}else if cleanInput(strings.ToLower(input))[0] == "explore"{
 			exploreLocation = cleanInput(strings.ToLower(input))[1]
 			commandMap["explore"].callback()
+		}else if cleanInput(strings.ToLower(input))[0] == "catch"{
+			catchPokemon = cleanInput(strings.ToLower(input))[1]
+			commandMap["catch"].callback()
 		}else {
 			fmt.Println("Unknown command")
 		}
@@ -168,7 +192,7 @@ func commandExplore() error {
 	if res.StatusCode > 299 { return fmt.Errorf("response code over 299")}
 	if err != nil { return err }
 	defer res.Body.Close()
-	var data requestPokemon
+	var data requestPokemonInArea
 	errun := json.Unmarshal([]byte(body),&data)
 	if errun != nil { return errun }
 	for i := 0; i < len(data.PokemonList);i++{
@@ -176,3 +200,38 @@ func commandExplore() error {
 	}
 	return nil
 }
+
+func commandCatch() error {
+	fmt.Printf("Throwing a Pokeball at %v...\n",catchPokemon)
+	res, err := http.Get("https://pokeapi.co/api/v2/pokemon/"+catchPokemon)
+	if err != nil { return err }
+	body,err := io.ReadAll(res.Body)
+	if res.StatusCode > 299 { return fmt.Errorf("response code over 299")}
+	if err != nil { return err }
+	defer res.Body.Close()
+	var data requestPokemon
+	errun := json.Unmarshal([]byte(body),&data)
+	if errun != nil { return errun }
+	// fmt.Printf("base stat %v\n",data.PokemonStats[0].Base_Stat)	
+	const maxThrows = 3
+	catchChance := 1.0 - float64(data.PokemonStats[0].Base_Stat)/255.0
+	if catchChance < 0.10 {
+		catchChance = 0.10
+	}
+	if catchChance > 0.90 {
+		catchChance = 0.90
+	}
+	if rand.Float64() < catchChance {
+		caughtPokemon[catchPokemon]=Pokemon{
+			name: catchPokemon,
+			basehp:data.PokemonStats[0].Base_Stat,
+		}
+		fmt.Printf("%s was caught!\n", catchPokemon)
+	}else {
+		throw++
+		fmt.Printf("%s escaped!\n", catchPokemon)
+	}
+	catchChance += 0.05
+	return nil
+}
+
