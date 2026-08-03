@@ -11,33 +11,34 @@ import (
 	"time"
 	"github.com/DevankNassa/gopoke/internal/pokecache"
 )
-
 type cliCommand struct {
 	name string
 	description string
 	callback func() error
 }
-
 type resultStruct struct{
 	Name string `json:"name"`
 	Url string `json:"url"`
 }
-
+type pokemonStruct struct{
+	Pokemon resultStruct `json:pokemon`
+}
 type requestBody struct {
 	Count int `json:"count"`
 	Next string `json:"next"`
 	Previous string `json:"previous"`
 	Results []resultStruct `json:"results"`
 }
+type requestPokemon struct {
+	PokemonList []pokemonStruct `json:"pokemon_encounters"`
+}
 
 var commandMap map[string]cliCommand
 var currentPage string
 var previousPage string
-// var cleanUpInterval time.Duration
+var exploreLocation string
 
 func init() {
-	// cleanUpInterval = 10 * time.Second
-	// pokeCache := NewCache(cleanUpInterval)
 	currentPage = "https://pokeapi.co/api/v2/location-area"
 	previousPage = ""
 	commandMap = map[string]cliCommand{
@@ -61,7 +62,11 @@ func init() {
 			name: "mapb",
 			description: "List the locaitons in the previous page",
 			callback: commandMapbFunc,
-
+		},
+		"explore":{
+			name:"explore",
+			description: "Explore pokemon in the area selected",
+			callback: commandExplore,
 		},
 	}
 }
@@ -82,7 +87,10 @@ func main() {
 			commandMap["map"].callback()
 		}else if strings.ToLower(input) == "mapb"{
 			commandMap["mapb"].callback()
-		} else {
+		}else if cleanInput(strings.ToLower(input))[0] == "explore"{
+			exploreLocation = cleanInput(strings.ToLower(input))[1]
+			commandMap["explore"].callback()
+		}else {
 			fmt.Println("Unknown command")
 		}
 	}
@@ -151,4 +159,20 @@ func callAPI(callURL string) error {
 	fmt.Printf("%v",string(item))
 	return nil
 	
+}
+
+func commandExplore() error {
+	res, err := http.Get("https://pokeapi.co/api/v2/location-area/"+exploreLocation)
+	if err != nil { return err }
+	body,err := io.ReadAll(res.Body)
+	if res.StatusCode > 299 { return fmt.Errorf("response code over 299")}
+	if err != nil { return err }
+	defer res.Body.Close()
+	var data requestPokemon
+	errun := json.Unmarshal([]byte(body),&data)
+	if errun != nil { return errun }
+	for i := 0; i < len(data.PokemonList);i++{
+		fmt.Printf("%v\n",data.PokemonList[i].Pokemon.Name)
+	}
+	return nil
 }
