@@ -33,15 +33,34 @@ type requestBody struct {
 type requestPokemonInArea struct {
 	PokemonList []pokemonStruct `json:"pokemon_encounters"`
 }
+type statStruct struct {
+	Name string `json:"name"`
+}
 type statsStruct struct {
 	Base_Stat int `json:"base_stat"`
+	Stat statStruct `json:"stat"`
+}
+type typeStruct struct {
+	Type statStruct `json:"type"`
 }
 type requestPokemon struct {
 	PokemonStats []statsStruct `json:"stats"`
+	Height int `json:"height"`
+	Weight int `json:"weight"`
+	Types []typeStruct `json:"Types"`
 }
 type Pokemon struct {
 	name string
 	basehp int
+	height int
+	weight int
+	hp int
+	attack int
+	special_attack int
+	special_defense int
+	speed int
+	defense int
+	types []string
 
 }
 
@@ -50,6 +69,7 @@ var currentPage string
 var previousPage string
 var exploreLocation string
 var catchPokemon string
+var selectedPokemon string
 var caughtPokemon = make(map[string]Pokemon)
 var throw int
 
@@ -89,6 +109,11 @@ func init() {
 			description:"Catch the pokemon",
 			callback: commandCatch,
 		},
+		"inspect":{
+			name:"inspect",
+			description:"Inspect caught pokemon",
+			callback: commandInspect,
+		},
 	}
 }
 
@@ -114,6 +139,9 @@ func main() {
 		}else if cleanInput(strings.ToLower(input))[0] == "catch"{
 			catchPokemon = cleanInput(strings.ToLower(input))[1]
 			commandMap["catch"].callback()
+		}else if cleanInput(strings.ToLower(input))[0] == "inspect"{
+			selectedPokemon = cleanInput(strings.ToLower(input))[1]
+			commandMap["inspect"].callback()
 		}else {
 			fmt.Println("Unknown command")
 		}
@@ -212,7 +240,6 @@ func commandCatch() error {
 	var data requestPokemon
 	errun := json.Unmarshal([]byte(body),&data)
 	if errun != nil { return errun }
-	// fmt.Printf("base stat %v\n",data.PokemonStats[0].Base_Stat)	
 	const maxThrows = 3
 	catchChance := 1.0 - float64(data.PokemonStats[0].Base_Stat)/255.0
 	if catchChance < 0.10 {
@@ -222,16 +249,86 @@ func commandCatch() error {
 		catchChance = 0.90
 	}
 	if rand.Float64() < catchChance {
+		// fmt.Printf("data.PokemonStats %v\n",data.PokemonStats)
+		// fmt.Printf("data.PokemonStats[0].Base_Stat %v\n",data.PokemonStats[0].Base_Stat)
+		// fmt.Printf("data.PokemonStats[0].Stat.Name %v\n",data.PokemonStats[0].Stat.Name)
+		var basehp int
+		var attack int
+		var defense int
+		var speed int
+		var special_attack int
+		var special_defense int
+		var types []string
+		for i := 0; i <len(data.PokemonStats);i++{
+			if data.PokemonStats[i].Stat.Name == "hp"{
+				basehp = data.PokemonStats[i].Base_Stat
+			}
+			if data.PokemonStats[i].Stat.Name == "attack"{
+				attack = data.PokemonStats[i].Base_Stat
+			}
+			if data.PokemonStats[i].Stat.Name == "speed"{
+				speed = data.PokemonStats[i].Base_Stat
+			}
+			if data.PokemonStats[i].Stat.Name == "defense"{
+				defense = data.PokemonStats[i].Base_Stat
+			}
+			if data.PokemonStats[i].Stat.Name == "special-attack"{
+				special_attack = data.PokemonStats[i].Base_Stat
+			}
+			if data.PokemonStats[i].Stat.Name == "special-defense"{
+				special_defense = data.PokemonStats[i].Base_Stat
+			}
+		}
+		for i :=0;i<len(data.Types);i++{
+			types = append(types,data.Types[i].Type.Name)
+		}
 		caughtPokemon[catchPokemon]=Pokemon{
 			name: catchPokemon,
-			basehp:data.PokemonStats[0].Base_Stat,
+			basehp: basehp,
+			speed: speed,
+			attack:attack,
+			defense:defense,
+			special_attack:special_attack,
+			special_defense:special_defense,
+			height:data.Height,
+			weight:data.Weight,
+			types: types,
 		}
+
 		fmt.Printf("%s was caught!\n", catchPokemon)
 	}else {
 		throw++
+		catchChance += 0.05
 		fmt.Printf("%s escaped!\n", catchPokemon)
 	}
-	catchChance += 0.05
 	return nil
+}
+
+func commandInspect() error {
+	// fmt.Printf("inspect called%s",selectedPokemon)
+	pokemon,err := caughtPokemon[selectedPokemon]
+	if err {
+		fmt.Printf("Name: %s\n",pokemon.name)
+		fmt.Printf("Height: %d\n",pokemon.height)
+		fmt.Printf("Weight: %d\n",pokemon.weight)
+		fmt.Print("Stats:\n")
+		fmt.Printf("  -hp: %d\n",pokemon.basehp)
+		fmt.Printf("  -attack: %d\n",pokemon.attack)
+		fmt.Printf("  -defense: %d\n",pokemon.defense)
+		fmt.Printf("  -speical-attack: %d\n",pokemon.special_attack)
+		fmt.Printf("  -special-defense: %d\n",pokemon.special_defense)
+		fmt.Printf("  -speed: %d\n",pokemon.speed)
+		fmt.Print("Types:\n")
+		for i :=0;i<len(pokemon.types);i++{
+			fmt.Printf("  - %s\n",pokemon.types[i])
+		}
+	}else {
+
+		fmt.Printf("you have not caught that pokemon\n")
+		
+	}
+
+	return nil
+
 }
 
