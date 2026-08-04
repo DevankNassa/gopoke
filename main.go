@@ -114,6 +114,11 @@ func init() {
 			description:"Inspect caught pokemon",
 			callback: commandInspect,
 		},
+		"pokedex":{
+			name:"pokedex",
+			description:"List the pokedex",
+			callback: commandPokedex,
+		},
 	}
 }
 
@@ -142,6 +147,8 @@ func main() {
 		}else if cleanInput(strings.ToLower(input))[0] == "inspect"{
 			selectedPokemon = cleanInput(strings.ToLower(input))[1]
 			commandMap["inspect"].callback()
+		}else if cleanInput(strings.ToLower(input))[0] == "pokedex"{
+			commandMap["pokedex"].callback()
 		}else {
 			fmt.Println("Unknown command")
 		}
@@ -296,6 +303,7 @@ func commandCatch() error {
 		}
 
 		fmt.Printf("%s was caught!\n", catchPokemon)
+		fmt.Printf("You may now inspect it with the inspect command.\n")
 	}else {
 		throw++
 		catchChance += 0.05
@@ -330,5 +338,13 @@ func commandInspect() error {
 
 	return nil
 
+}
+
+func commandPokedex() error {
+	fmt.Printf("Your Pokedex:\n")
+	for key := range caughtPokemon{
+		fmt.Printf("  -%s\n",key)
+	}
+	return nil
 }
 
